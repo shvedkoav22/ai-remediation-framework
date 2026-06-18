@@ -1,0 +1,18 @@
+sonar-sast-check:
+  stage: test
+  image: 
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main" || $CI_COMMIT_REF_NAME == "master"'
+  script:
+    - echo "[!] Запуск анализа SonarCloud для ветки $CI_COMMIT_REF_NAME"
+    - >
+      sonar-scanner
+      -Dsonar.organization=$SONAR_ORGANIZATION_KEY 
+      -Dsonar.projectKey=$SONAR_PROJECT_KEY 
+      -Dsonar.token=$SONAR_TOKEN 
+      -Dsonar.qualitygate.wait=true 
+      -Dsonar.coverage.exclusions=**/*

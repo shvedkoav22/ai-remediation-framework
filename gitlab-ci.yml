@@ -1,0 +1,58 @@
+stages:
+  - test
+  - security
+
+variables:
+  SONAR_ORGANIZATION_KEY: "remme"
+  SONAR_PROJECT_KEY: "remme_demo-app"
+
+include:
+  - project: 'remme/ci-templates'
+    file: 'sonar-check.yml'
+
+ai-remediation:
+  stage: security
+  image: python:3.11-slim
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main" && $CI_PIPELINE_SOURCE == "push"'
+      when: on_failure
+  before_script:
+    - apt-get update && apt-get install -y git curl
+    - pip install openai requests
+    - curl -O "https://gitlab.com/remme/ci-templates/-/raw/main/ai-remidator.py?ref_type=heads"
+  script:
+    - python3 -u ai-remidator.py
+  allow_failure: true
+
+ai-code-validation:
+  stage: test
+  image: python:3.11-slim
+  rules:
+    # Запускаем, если ветка начинается на ai- (наши патчи)
+    - if: '$CI_COMMIT_REF_NAME =~ /^ai-/ && $CI_PIPELINE_SOURCE == "push"'
+  before_script:
+    # 1. Обновляем кэш пакетов, иначе git не найдется
+    - apt-get update && apt-get install -y git
+    # 2. Устанавливаем Semgrep
+    - pip install semgrep
+  script:
+    - echo "[*] Настройка окружения Git..."
+    # 3. Устраняем ошибку "dubious ownership" в Docker
+    - git config --global --add safe.directory $CI_PROJECT_DIR
+    # 4. Получаем данные о ветке main для сравнения (дифференциальный анализ)
+    - git fetch origin main
+    
+    - echo "[*] Определение списка файлов, измененных ИИ..."
+    # Получаем список файлов, которые отличаются от main
+    - CHANGED_FILES=$(git diff --name-only origin/main...HEAD | tr '\n' ' ')
+    
+    - |
+      if [ -n "$CHANGED_FILES" ]; then 
+        echo "Файлы для проверки: $CHANGED_FILES"
+        # 5. Запускаем Semgrep ТОЛЬКО на этих файлах
+        # --error вернет exit code 1, если ИИ оставил уязвимость
+        semgrep scan --config auto --error $CHANGED_FILES
+      else 
+        echo "Изменений в коде не обнаружено, скан пропущен."
+      fi
+  allow_failure: false
