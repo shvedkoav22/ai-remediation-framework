@@ -74,12 +74,13 @@ ai-code-validation:
     - git fetch origin main
     - CHANGED_FILES=$(git diff --name-only origin/main...HEAD | tr '\n' ' ')
     - if [ -n "$CHANGED_FILES" ]; then semgrep scan --config auto --error $CHANGED_FILES; fi
+```
 🛠 Зависимости
 
-    Python 3.11+
+  Python 3.11+
 
-    Git
+  Git
 
-    Окружение GitLab Runner (Docker executor)
+  Окружение GitLab Runner (Docker executor)
 
 Проект разработан в рамках дипломного исследования по направлению "Компьютерная безопасность".
